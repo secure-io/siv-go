@@ -9,6 +9,7 @@ env:
    - TRAVIS_GOARCH=386 
  
 before_install:
+- export GO111MODULE=on
 - export GOARCH=$TRAVIS_GOARCH
 
 branches:
