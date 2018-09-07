@@ -1,3 +1,7 @@
+// Copyright (c) 2018 Andreas Auernhammer. All rights reserved.
+// Use of this source code is governed by a license that can be
+// found in the LICENSE file.
+
 package siv
 
 import "encoding/hex"
@@ -48,24 +52,10 @@ var aesSivTests = []vector{
 		ciphertext:     "f304f912863e303d5b540e5057c7010c942ffaf45b0e5ca5fb9a56a5263bb065",
 	},
 	{
-		key:            "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
-		plaintext:      "112233445566778899aabbccddee",
-		additionalData: "",
-		nonce:          "101112131415161718191a1b1c1d1e1f2021222324252627",
-		ciphertext:     "4b3d0f15ae9ffa9e65b949421582ef70e410910d6446c7759ebff9b5385a",
-	},
-	{
 		key:            "7f7e7d7c7b7a79787776757473727170404142434445464748494a4b4c4d4e4f",
 		plaintext:      "7468697320697320736f6d6520706c61696e7465787420746f20656e6372797074207573696e67205349562d414553",
 		additionalData: "00112233445566778899aabbccddeeffdeaddadadeaddadaffeeddccbbaa99887766554433221100",
 		nonce:          "09f911029d74e35bd84156c5635688c0",
 		ciphertext:     "85825e22e90cf2ddda2c548dc7c1b6310dcdaca0cebf9dc6cb90583f5bf1506e02cd48832b00e4e598b2b22a53e6199d4df0c1666a35a0433b250dc134d776",
-	},
-	{
-		key:            "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f06f6e6d6c6b6a69686766656463626160f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f",
-		plaintext:      "112233445566778899aabbccddee",
-		additionalData: "",
-		nonce:          "101112131415161718191a1b1c1d1e1f2021222324252627",
-		ciphertext:     "e618d2d6a86b50a8d7df82ab34aa950ab319d7fc15f7cd1ea99b1a033f20",
 	},
 }
