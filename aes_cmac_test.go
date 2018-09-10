@@ -16,11 +16,11 @@ func TestAESCMAC(t *testing.T) {
 			t.Errorf("Test %d: Failed to create AES_SIV: %v", i, err)
 			continue
 		}
-		ciphertext := c.Seal(nil, v.Plaintext(), v.Nonce(), v.AdditionalData())
+		ciphertext := c.Seal(nil, v.Nonce(), v.Plaintext(), v.AdditionalData())
 		if !bytes.Equal(ciphertext, v.Ciphertext()) {
 			t.Errorf("Test %d: Seal - ciphertext mismatch", i)
 		}
-		plaintext, err := c.Open(ciphertext[c.Overhead():c.Overhead()], ciphertext, v.Nonce(), v.AdditionalData())
+		plaintext, err := c.Open(ciphertext[c.Overhead():c.Overhead()], v.Nonce(), ciphertext, v.AdditionalData())
 		if err != nil {
 			t.Errorf("Test %d: Open - %v", i, err)
 		}
@@ -62,7 +62,7 @@ func benchmarkSeal(key []byte, size int64, b *testing.B) {
 	b.ResetTimer()
 	b.SetBytes(size)
 	for i := 0; i < b.N; i++ {
-		c.Seal(ciphertext[:0], plaintext, nil, nil)
+		c.Seal(ciphertext[:0], nil, plaintext, nil)
 	}
 }
 
@@ -72,12 +72,12 @@ func benchmarkOpen(key []byte, size int64, b *testing.B) {
 		b.Fatal(err)
 	}
 	plaintext := make([]byte, size)
-	ciphertext := c.Seal(nil, plaintext, nil, nil)
+	ciphertext := c.Seal(nil, nil, plaintext, nil)
 
 	b.ResetTimer()
 	b.SetBytes(size)
 	for i := 0; i < b.N; i++ {
-		if _, err := c.Open(plaintext[:0], ciphertext, nil, nil); err != nil {
+		if _, err := c.Open(plaintext[:0], nil, ciphertext, nil); err != nil {
 			panic(err)
 		}
 	}
