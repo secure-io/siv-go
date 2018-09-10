@@ -13,14 +13,12 @@ import (
 	cmac "github.com/aead/cmac/aes"
 )
 
-// NewCMAC returns a new cipher.AEAD implementing AES-SIV-CMAC
-// as descirbed in RFC 5297. The key must be twice as large as
-// an AES key - so either 256, 384 or 512 bit.
+// NewCMAC returns a cipher.AEAD implementing AES-SIV-CMAC
+// as specified in RFC 5297. The key must be twice as large
+// as an AES key - so either 256, 384 or 512 bit.
 //
-// NewCMAC differs from other cipher.AEAD implementations such
-// that the nonce may be empty or NonceSize() bytes long.
-// AES-SIV-CMAC is an determinist AEAD if no unique/random nonce
-// is provided.
+// The returned cipher.AEAD accepts an empty or NonceSize()
+// bytes long nonce.
 func NewCMAC(key []byte) (cipher.AEAD, error) {
 	mac, err := cmac.New(key[:len(key)/2])
 	if err != nil {
@@ -36,8 +34,8 @@ func NewCMAC(key []byte) (cipher.AEAD, error) {
 	}, nil
 }
 
-// aesSivCMac implements the AES-SIV using the AES-CMAC as
-// pseudo-random function.
+var _ cipher.AEAD = (*aesSivCMac)(nil)
+
 type aesSivCMac struct {
 	cmac hash.Hash
 	ctr  ctrMode
@@ -47,7 +45,7 @@ func (c *aesSivCMac) NonceSize() int { return aes.BlockSize }
 
 func (c *aesSivCMac) Overhead() int { return aes.BlockSize }
 
-func (c *aesSivCMac) Seal(dst, plaintext, nonce, additionalData []byte) []byte {
+func (c *aesSivCMac) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
 	if n := len(nonce); n != 0 && n != c.NonceSize() {
 		panic("siv: incorrect nonce length given to AES-SIV-CMAC")
 	}
@@ -61,7 +59,7 @@ func (c *aesSivCMac) Seal(dst, plaintext, nonce, additionalData []byte) []byte {
 	return ret
 }
 
-func (c *aesSivCMac) Open(dst, ciphertext, nonce, additionalData []byte) ([]byte, error) {
+func (c *aesSivCMac) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error) {
 	if n := len(nonce); n != 0 && n != c.NonceSize() {
 		panic("siv: incorrect nonce length given to AES-SIV-CMAC")
 	}
