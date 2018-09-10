@@ -22,4 +22,5 @@ before_script:
 
 script:
 - diff -au <(gofmt -d .) <(printf "")
+- diff -au <(go vet -all .) <(printf "")
 - go test -v ./...
