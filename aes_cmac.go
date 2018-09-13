@@ -15,7 +15,7 @@ import (
 
 // NewCMAC returns a cipher.AEAD implementing AES-SIV-CMAC
 // as specified in RFC 5297. The key must be twice as large
-// as an AES key - so either 256, 384 or 512 bit.
+// as an AES key - so either 32, 48 or 64 bytes long.
 //
 // The returned cipher.AEAD accepts an empty or NonceSize()
 // bytes long nonce.
