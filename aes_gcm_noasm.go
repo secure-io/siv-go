@@ -6,8 +6,105 @@ package siv
 
 import (
 	"crypto/aes"
+	"crypto/cipher"
+	"crypto/subtle"
 	"encoding/binary"
 )
+
+func newGCMGeneric(key []byte) authEnc {
+	block, _ := aes.NewCipher(key)
+	return &aesGcmSivGeneric{block: block, keyLen: len(key)}
+}
+
+type aesGcmSivGeneric struct {
+	block  cipher.Block
+	keyLen int
+}
+
+func (c *aesGcmSivGeneric) Seal(ciphertext, nonce, plaintext, additionalData []byte) {
+	encKey, authKey := c.deriveKeys(nonce)
+
+	var tag [16]byte
+	polyvalGeneric(&tag, additionalData, plaintext, authKey)
+	for i := range nonce {
+		tag[i] ^= nonce[i]
+	}
+	tag[15] &= 0x7f
+
+	block, _ := aes.NewCipher(encKey)
+	block.Encrypt(tag[:], tag[:])
+	ctrBlock := tag
+	ctrBlock[15] |= 0x80
+
+	xorKeystreamGeneric(ciphertext, plaintext, encKey, ctrBlock[:])
+	copy(ciphertext[len(plaintext):], tag[:])
+}
+
+func (c *aesGcmSivGeneric) Open(plaintext, nonce, ciphertext, additionalData []byte) error {
+	tag := ciphertext[len(ciphertext)-16:]
+	ciphertext = ciphertext[:len(ciphertext)-16]
+
+	encKey, authKey := c.deriveKeys(nonce)
+	var ctrBlock [16]byte
+	copy(ctrBlock[:], tag)
+	ctrBlock[15] |= 0x80
+	xorKeystreamGeneric(plaintext, ciphertext, encKey, ctrBlock[:])
+
+	var sum [16]byte
+	polyvalGeneric(&sum, additionalData, plaintext, authKey)
+	for i := range nonce {
+		sum[i] ^= nonce[i]
+	}
+	sum[15] &= 0x7f
+
+	block, _ := aes.NewCipher(encKey)
+	block.Encrypt(sum[:], sum[:])
+	if subtle.ConstantTimeCompare(sum[:], tag[:]) != 1 {
+		for i := range plaintext {
+			plaintext[i] = 0
+		}
+		return errOpen
+	}
+	return nil
+}
+
+func (c *aesGcmSivGeneric) deriveKeys(nonce []byte) (encKey, authKey []byte) {
+	var counter [16]byte
+	encKey = make([]byte, 32)
+	authKey = make([]byte, 16)
+	copy(counter[4:], nonce[:])
+
+	var tmp [16]byte
+	binary.LittleEndian.PutUint32(counter[:4], 0)
+	c.block.Encrypt(tmp[:], counter[:])
+	copy(authKey[0:], tmp[:8])
+
+	binary.LittleEndian.PutUint32(counter[:4], 1)
+	c.block.Encrypt(tmp[:], counter[:])
+	copy(authKey[8:], tmp[:8])
+
+	binary.LittleEndian.PutUint32(counter[:4], 2)
+	c.block.Encrypt(tmp[:], counter[:])
+	copy(encKey[0:], tmp[:8])
+
+	binary.LittleEndian.PutUint32(counter[:4], 3)
+	c.block.Encrypt(tmp[:], counter[:])
+	copy(encKey[8:], tmp[:8])
+
+	if c.keyLen == 16 {
+		return encKey[:16], authKey
+	}
+
+	binary.LittleEndian.PutUint32(counter[:4], 4)
+	c.block.Encrypt(tmp[:], counter[:])
+	copy(encKey[16:], tmp[:8])
+
+	binary.LittleEndian.PutUint32(counter[:4], 5)
+	c.block.Encrypt(tmp[:], counter[:])
+	copy(encKey[24:], tmp[:8])
+
+	return encKey, authKey
+}
 
 func xorKeystreamGeneric(dst, src, key, iv []byte) {
 	var ctr, tmp [16]byte
