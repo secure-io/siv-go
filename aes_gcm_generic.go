@@ -11,17 +11,19 @@ import (
 	"encoding/binary"
 )
 
-func newGCMGeneric(key []byte) authEnc {
+func newGCMGeneric(key []byte) aead {
 	block, _ := aes.NewCipher(key)
 	return &aesGcmSivGeneric{block: block, keyLen: len(key)}
 }
+
+var _ aead = (*aesGcmSivGeneric)(nil)
 
 type aesGcmSivGeneric struct {
 	block  cipher.Block
 	keyLen int
 }
 
-func (c *aesGcmSivGeneric) Seal(ciphertext, nonce, plaintext, additionalData []byte) {
+func (c *aesGcmSivGeneric) seal(ciphertext, nonce, plaintext, additionalData []byte) {
 	encKey, authKey := c.deriveKeys(nonce)
 
 	var tag [16]byte
@@ -40,7 +42,7 @@ func (c *aesGcmSivGeneric) Seal(ciphertext, nonce, plaintext, additionalData []b
 	copy(ciphertext[len(plaintext):], tag[:])
 }
 
-func (c *aesGcmSivGeneric) Open(plaintext, nonce, ciphertext, additionalData []byte) error {
+func (c *aesGcmSivGeneric) open(plaintext, nonce, ciphertext, additionalData []byte) error {
 	tag := ciphertext[len(ciphertext)-16:]
 	ciphertext = ciphertext[:len(ciphertext)-16]
 

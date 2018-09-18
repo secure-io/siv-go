@@ -20,7 +20,7 @@ func NewGCM(key []byte) (cipher.AEAD, error) {
 
 var _ cipher.AEAD = (*aesGcmSiv)(nil)
 
-type aesGcmSiv struct{ authEnc }
+type aesGcmSiv struct{ aead }
 
 func (c *aesGcmSiv) NonceSize() int { return 12 }
 
@@ -37,7 +37,7 @@ func (c *aesGcmSiv) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
 		panic("siv: additional data too large for AES-GCM-SIV")
 	}
 	ret, ciphertext := sliceForAppend(dst, len(plaintext)+c.Overhead())
-	c.authEnc.Seal(ciphertext, nonce, plaintext, additionalData)
+	c.seal(ciphertext, nonce, plaintext, additionalData)
 	return ret
 }
 
@@ -55,7 +55,7 @@ func (c *aesGcmSiv) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte,
 		return nil, errOpen
 	}
 	ret, plaintext := sliceForAppend(dst, len(ciphertext)-c.Overhead())
-	if err := c.authEnc.Open(plaintext, nonce, ciphertext, additionalData); err != nil {
+	if err := c.open(plaintext, nonce, ciphertext, additionalData); err != nil {
 		return ret, err
 	}
 	return ret, nil

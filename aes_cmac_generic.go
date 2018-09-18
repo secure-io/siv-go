@@ -13,7 +13,7 @@ import (
 	cmac "github.com/aead/cmac/aes"
 )
 
-func newCMACGeneric(key []byte) authEnc {
+func newCMACGeneric(key []byte) aead {
 	cmac, _ := cmac.New(key[:len(key)/2])
 	block, _ := aes.NewCipher(key[len(key)/2:])
 	return &aesSivCMacGeneric{cmac: cmac, block: block}
@@ -24,8 +24,8 @@ type aesSivCMacGeneric struct {
 	block cipher.Block
 }
 
-func (c *aesSivCMacGeneric) Seal(ciphertext, nonce, plaintext, additionalData []byte) {
-	v := c.s2v(additionalData, nonce, plaintext)
+func (c *aesSivCMacGeneric) seal(ciphertext, nonce, plaintext, additionalData []byte) {
+	v := s2vGeneric(additionalData, nonce, plaintext, c.cmac)
 	copy(ciphertext, v[:])
 
 	iv := newIV(v)
@@ -33,7 +33,7 @@ func (c *aesSivCMacGeneric) Seal(ciphertext, nonce, plaintext, additionalData []
 	ctr.XORKeyStream(ciphertext[len(v):], plaintext)
 }
 
-func (c *aesSivCMacGeneric) Open(plaintext, nonce, ciphertext, additionalData []byte) error {
+func (c *aesSivCMacGeneric) open(plaintext, nonce, ciphertext, additionalData []byte) error {
 	var tag [16]byte
 	copy(tag[:], ciphertext[:16])
 	ciphertext = ciphertext[16:]
@@ -42,7 +42,7 @@ func (c *aesSivCMacGeneric) Open(plaintext, nonce, ciphertext, additionalData []
 	ctr := cipher.NewCTR(c.block, iv[:])
 	ctr.XORKeyStream(plaintext, ciphertext)
 
-	v := c.s2v(additionalData, nonce, plaintext)
+	v := s2vGeneric(additionalData, nonce, plaintext, c.cmac)
 	if subtle.ConstantTimeCompare(v[:], tag[:]) != 1 {
 		for i := range plaintext {
 			plaintext[i] = 0
@@ -52,25 +52,25 @@ func (c *aesSivCMacGeneric) Open(plaintext, nonce, ciphertext, additionalData []
 	return nil
 }
 
-func (c *aesSivCMacGeneric) s2v(additionalData, nonce, plaintext []byte) [16]byte {
+func s2vGeneric(additionalData, nonce, plaintext []byte, mac hash.Hash) [16]byte {
 	var b0, b1 [16]byte
-	c.cmac.Write(b0[:])
-	c.cmac.Sum(b1[:0])
-	c.cmac.Reset()
+	mac.Write(b0[:])
+	mac.Sum(b1[:0])
+	mac.Reset()
 
 	if len(additionalData) > 0 || len(nonce) > 0 {
-		c.cmac.Write(additionalData)
-		c.cmac.Sum(b0[:0])
-		c.cmac.Reset()
+		mac.Write(additionalData)
+		mac.Sum(b0[:0])
+		mac.Reset()
 
 		dbl(&b1)
 		for i := range b1 {
 			b1[i] ^= b0[i]
 		}
 		if len(nonce) > 0 {
-			c.cmac.Write(nonce)
-			c.cmac.Sum(b0[:0])
-			c.cmac.Reset()
+			mac.Write(nonce)
+			mac.Sum(b0[:0])
+			mac.Reset()
 
 			dbl(&b1)
 			for i := range b1 {
@@ -85,7 +85,7 @@ func (c *aesSivCMacGeneric) s2v(additionalData, nonce, plaintext []byte) [16]byt
 	if len(plaintext) >= 16 {
 		n := len(plaintext) - 16
 		copy(b0[:], plaintext[n:])
-		c.cmac.Write(plaintext[:n])
+		mac.Write(plaintext[:n])
 	} else {
 		copy(b0[:], plaintext)
 		b0[len(plaintext)] = 0x80
@@ -95,9 +95,9 @@ func (c *aesSivCMacGeneric) s2v(additionalData, nonce, plaintext []byte) [16]byt
 	for i := range b0 {
 		b0[i] ^= b1[i]
 	}
-	c.cmac.Write(b0[:])
-	c.cmac.Sum(b0[:0])
-	c.cmac.Reset()
+	mac.Write(b0[:])
+	mac.Sum(b0[:0])
+	mac.Reset()
 	return b0
 }
 

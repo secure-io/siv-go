@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-func newGCM(key []byte) authEnc {
+func newGCM(key []byte) aead {
 	if cpu.X86.HasAES && cpu.X86.HasPCLMULQDQ {
 	}
 	return newGCMGeneric(key)

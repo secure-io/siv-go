@@ -22,7 +22,7 @@ func NewCMAC(key []byte) (cipher.AEAD, error) {
 	return &aesSivCMac{newCMAC(key)}, nil
 }
 
-type aesSivCMac struct{ authEnc }
+type aesSivCMac struct{ aead }
 
 func (c *aesSivCMac) NonceSize() int { return aes.BlockSize }
 
@@ -33,7 +33,7 @@ func (c *aesSivCMac) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
 		panic("siv: incorrect nonce length given to AES-SIV-CMAC")
 	}
 	ret, ciphertext := sliceForAppend(dst, c.Overhead()+len(plaintext))
-	c.authEnc.Seal(ciphertext, nonce, plaintext, additionalData)
+	c.seal(ciphertext, nonce, plaintext, additionalData)
 	return ret
 }
 
@@ -45,7 +45,7 @@ func (c *aesSivCMac) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte
 		return dst, errOpen
 	}
 	ret, plaintext := sliceForAppend(dst, len(ciphertext)-c.Overhead())
-	if err := c.authEnc.Open(plaintext, nonce, ciphertext, additionalData); err != nil {
+	if err := c.open(plaintext, nonce, ciphertext, additionalData); err != nil {
 		return ret, err
 	}
 	return ret, nil

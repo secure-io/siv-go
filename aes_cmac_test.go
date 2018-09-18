@@ -7,9 +7,22 @@ package siv
 import (
 	"bytes"
 	"testing"
+
+	"golang.org/x/sys/cpu"
 )
 
 func TestAESCMAC(t *testing.T) {
+	hasAES := cpu.X86.HasAES
+	defer func(hasAES bool) { cpu.X86.HasAES = hasAES }(hasAES)
+
+	if hasAES {
+		t.Run("Asm", testAESCMAC)
+		cpu.X86.HasAES = false
+	}
+	t.Run("Generic", testAESCMAC)
+}
+
+func testAESCMAC(t *testing.T) {
 	for i, v := range aesSivTests {
 		c, err := NewCMAC(v.Key())
 		if err != nil {
@@ -27,6 +40,66 @@ func TestAESCMAC(t *testing.T) {
 		if !bytes.Equal(plaintext, v.Plaintext()) {
 			t.Errorf("Test %d: Open - plaintext mismatch", i)
 		}
+	}
+}
+
+func TestAESCMACAssembler(t *testing.T) {
+	if !cpu.X86.HasAES {
+		t.Skip("No assembler implementation / AES hardware support")
+	}
+	keys := [][]byte{make([]byte, 32), make([]byte, 48), make([]byte, 64)}
+	for i := range keys {
+		for j := range keys[i] {
+			keys[i][j] = byte(i*j + len(keys))
+		}
+	}
+	nonce := make([]byte, 16)
+	for i := range nonce {
+		nonce[i] = byte(i)
+	}
+	plaintext := make([]byte, 1024)
+	ciphertext := make([]byte, len(plaintext)+16)
+	for i := range keys {
+		for j := range plaintext {
+			plaintext[i] = byte(j + i)
+			testAESCMACAssmebler(i, ciphertext[:16+j], nonce, plaintext[:j], plaintext[j:], keys[i], t)
+		}
+	}
+}
+
+func testAESCMACAssmebler(i int, ciphertext, nonce, plaintext, additionalData, key []byte, t *testing.T) {
+	hasAES := cpu.X86.HasAES
+	defer func(hasAES bool) { cpu.X86.HasAES = hasAES }(hasAES)
+
+	c, err := NewCMAC(key)
+	if err != nil {
+		t.Fatalf("Test %d: failed to create AES-SIV-CMAC: %v", i, err)
+	}
+	ciphertext = c.Seal(ciphertext[:0], nonce, plaintext, additionalData)
+	asmPlaintext, err := c.Open(nil, nonce, ciphertext, additionalData)
+	if err != nil {
+		t.Fatalf("Test %d: Open failed: %v", i, err)
+	}
+	if !bytes.Equal(plaintext, asmPlaintext) {
+		t.Fatalf("Test %d: plaintext mismatch", i)
+	}
+
+	cpu.X86.HasAES = false // Disable AES assembler implementations
+
+	c, err = NewCMAC(key)
+	if err != nil {
+		t.Fatalf("Test %d: failed to create AES-SIV-CMAC: %v", i, err)
+	}
+	refCiphertext := c.Seal(nil, nonce, plaintext, additionalData)
+	if !bytes.Equal(refCiphertext, ciphertext) {
+		t.Fatalf("Test %d: ciphertext mismatch", i)
+	}
+	refPlaintext, err := c.Open(ciphertext[16:16], nonce, ciphertext, additionalData)
+	if err != nil {
+		t.Fatalf("Test %d: Open failed: %v", i, err)
+	}
+	if !bytes.Equal(plaintext, refPlaintext) {
+		t.Fatalf("Test %d: plaintext mismatch", i)
 	}
 }
 
