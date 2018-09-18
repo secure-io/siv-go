@@ -6,4 +6,4 @@
 
 package siv
 
-func newGCM(key []byte) authEnc { return newGCMGeneric(key) }
+func newGCM(key []byte) aead { return newGCMGeneric(key) }

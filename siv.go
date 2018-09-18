@@ -54,10 +54,10 @@ import (
 
 var errOpen = errors.New("siv: message authentication failed")
 
-type authEnc interface {
-	Seal(ciphertext, nonce, plaintext, additionalData []byte)
+type aead interface {
+	seal(ciphertext, nonce, plaintext, additionalData []byte)
 
-	Open(plaintext, nonce, ciphertext, additionalData []byte) error
+	open(plaintext, nonce, ciphertext, additionalData []byte) error
 }
 
 // sliceForAppend takes a slice and a requested number of bytes. It returns a

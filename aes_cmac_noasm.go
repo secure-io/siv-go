@@ -6,4 +6,6 @@
 
 package siv
 
-func newCMAC(key []byte) authEnc { return newCMACGeneric(key) }
+type aesSivCMacImpl = aesSivCMacGeneric
+
+func newCMAC(key []byte) aead { return newCMACGeneric(key) }
