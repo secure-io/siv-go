@@ -14,16 +14,16 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-func keySchedule(keys, key *byte, keyLen uint64)
+func keySchedule(keys, key []byte)
 
-func xorKeyStream(dst, src, iv, keys []byte, keyLen uint64)
+func aesCMacXORKeyStream(dst, src, iv, keys []byte, keyLen uint64)
 
 func newCMAC(key []byte) aead {
 	if cpu.X86.HasAES {
 		cmac, _ := cmac.New(key[:len(key)/2])
 		key = key[len(key)/2:]
 		keys := make([]byte, 4*(28+len(key)))
-		keySchedule(&keys[0], &key[0], uint64(len(key)))
+		keySchedule(keys, key)
 		return &aesSivCMacAsm{
 			cmac:      cmac,
 			keys:      keys,
@@ -45,7 +45,7 @@ func (c *aesSivCMacAsm) seal(ciphertext, nonce, plaintext, additionalData []byte
 	ciphertext = ciphertext[len(v):]
 
 	iv := newIV(v)
-	xorKeyStream(ciphertext, plaintext, iv[:], c.keys, uint64(c.keyLength))
+	aesCMacXORKeyStream(ciphertext, plaintext, iv[:], c.keys, uint64(c.keyLength))
 }
 
 func (c *aesSivCMacAsm) open(plaintext, nonce, ciphertext, additionalData []byte) error {
@@ -54,7 +54,7 @@ func (c *aesSivCMacAsm) open(plaintext, nonce, ciphertext, additionalData []byte
 	ciphertext = ciphertext[len(v):]
 
 	iv := newIV(v)
-	xorKeyStream(plaintext, ciphertext, iv[:], c.keys, uint64(c.keyLength))
+	aesCMacXORKeyStream(plaintext, ciphertext, iv[:], c.keys, uint64(c.keyLength))
 
 	tag := s2vGeneric(additionalData, nonce, plaintext, c.cmac)
 	if subtle.ConstantTimeCompare(v[:], tag[:]) != 1 {
