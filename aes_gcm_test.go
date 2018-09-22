@@ -7,9 +7,22 @@ import (
 	"bytes"
 	"encoding/hex"
 	"testing"
+
+	"golang.org/x/sys/cpu"
 )
 
 func TestAESGCM(t *testing.T) {
+	hasAES, hashGHASH := cpu.X86.HasAES, cpu.X86.HasPCLMULQDQ
+	defer func(hasAES, hashGHASH bool) { cpu.X86.HasAES, cpu.X86.HasPCLMULQDQ = hasAES, hashGHASH }(hasAES, hashGHASH)
+
+	if hasAES && hashGHASH {
+		t.Run("Asm", testAESGCM)
+		cpu.X86.HasAES, cpu.X86.HasPCLMULQDQ = false, false
+	}
+	t.Run("Generic", testAESGCM)
+}
+
+func testAESGCM(t *testing.T) {
 	for i, v := range aesGcmSivTests {
 		c, err := NewGCM(v.Key())
 		if err != nil {
@@ -27,6 +40,66 @@ func TestAESGCM(t *testing.T) {
 		if !bytes.Equal(plaintext, v.Plaintext()) {
 			t.Errorf("Test %d: Open - plaintext mismatch", i)
 		}
+	}
+}
+
+func TestAESGCMAssembler(t *testing.T) {
+	if !cpu.X86.HasAES || !cpu.X86.HasPCLMULQDQ {
+		t.Skip("No assembler implementation / AES hardware support")
+	}
+	keys := [][]byte{make([]byte, 16), make([]byte, 32)}
+	for i := range keys {
+		for j := range keys[i] {
+			keys[i][j] = byte(i*j + len(keys))
+		}
+	}
+	nonce := make([]byte, 12)
+	for i := range nonce {
+		nonce[i] = byte(i)
+	}
+	plaintext := make([]byte, 1024)
+	ciphertext := make([]byte, len(plaintext)+16)
+	for i := range keys {
+		for j := range plaintext {
+			plaintext[i] = byte(j + i)
+			testAESGCMAssmebler(i, ciphertext[:16+j], nonce, plaintext[:j], plaintext[j:], keys[i], t)
+		}
+	}
+}
+
+func testAESGCMAssmebler(i int, ciphertext, nonce, plaintext, additionalData, key []byte, t *testing.T) {
+	hasAES, hashGHASH := cpu.X86.HasAES, cpu.X86.HasPCLMULQDQ
+	defer func(hasAES, hashGHASH bool) { cpu.X86.HasAES, cpu.X86.HasPCLMULQDQ = hasAES, hashGHASH }(hasAES, hashGHASH)
+
+	c, err := NewGCM(key)
+	if err != nil {
+		t.Fatalf("Test %d: failed to create AES-GCM-SIV: %v", i, err)
+	}
+	ciphertext = c.Seal(ciphertext[:0], nonce, plaintext, additionalData)
+	asmPlaintext, err := c.Open(nil, nonce, ciphertext, additionalData)
+	if err != nil {
+		t.Fatalf("Test %d: Open failed: %v", i, err)
+	}
+	if !bytes.Equal(plaintext, asmPlaintext) {
+		t.Fatalf("Test %d: plaintext mismatch", i)
+	}
+
+	cpu.X86.HasAES, cpu.X86.HasPCLMULQDQ = false, false // Disable AES assembler implementations
+
+	c, err = NewGCM(key)
+	if err != nil {
+		t.Fatalf("Test %d: failed to create AES-GCM-SIV: %v", i, err)
+	}
+	refCiphertext := c.Seal(nil, nonce, plaintext, additionalData)
+	if !bytes.Equal(refCiphertext, ciphertext) {
+		t.Fatalf("Test %d: ciphertext mismatch", i)
+	}
+	refPlaintext, err := c.Open(ciphertext[:0], nonce, ciphertext, additionalData)
+	if err != nil {
+		t.Fatalf("Test %d: Open failed: %v", i, err)
+	}
+	if !bytes.Equal(plaintext, refPlaintext) {
+		t.Fatalf("Test %d: plaintext mismatch", i)
 	}
 }
 

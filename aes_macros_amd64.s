@@ -4,6 +4,36 @@
 
 // +build amd64,!gccgo,!appengine
 
+// MULTIPLY performs a GF multiplication using
+// the irr. polynomial P. It computes R = H * R mod P
+#define MULTIPLY(R, H, P, T0, T1, T2, T3) \
+	MOVO      R, T0;        \
+	MOVO      R, T1;        \
+	MOVO      R, T2;        \
+	MOVO      R, T3;        \
+	PCLMULQDQ $0x00, H, T0; \
+	PCLMULQDQ $0x10, H, T1; \
+	PCLMULQDQ $0x01, H, T2; \
+	PCLMULQDQ $0x11, H, T3; \
+	PXOR      T2, T1;       \
+	MOVO      T1, T2;       \
+	PSLLDQ    $8, T2;       \
+	PSRLDQ    $8, T1;       \
+	PXOR      T2, T0;       \
+	PXOR      T1, T3;       \
+	MOVO      T0, T1;       \
+	PCLMULQDQ $0x10, P, T1; \
+	PSHUFD    $78, T0, T2;  \
+	MOVO      T1, T0;       \
+	PXOR      T2, T0;       \
+	MOVO      T0, T1;       \
+	PCLMULQDQ $0x10, P, T1; \
+	PSHUFD    $78, T0, T2;  \
+	MOVO      T1, T0;       \
+	PXOR      T2, T0;       \
+	MOVO      T3, R;        \
+	PXOR      T0, R
+
 #define AES_ROUND(OPCODE, t, k, keys, r) \
 	MOVUPS (r * 16)(keys), k; \
 	OPCODE k, t

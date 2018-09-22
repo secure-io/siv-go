@@ -43,17 +43,17 @@ TEXT ·encryptBlock(SB), 4, $0-80
 	MOVQ keyLen+72(FP), DX
 
 	MOVUPS (0 * 16)(SI), X0
-	CMPQ DX, $24
-	JE   aes_192
-	JB   aes_128
+	CMPQ   DX, $24
+	JE     aes_192
+	JB     aes_128
 
 aes_256:
 	AES_256(X0, X1, AX)
-	JMP    return
+	JMP return
 
 aes_192:
 	AES_192(X0, X1, AX)
-	JMP    return
+	JMP return
 
 aes_128:
 	AES_128(X0, X1, AX)
