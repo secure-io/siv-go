@@ -24,7 +24,7 @@ type aesGcmSivGeneric struct {
 }
 
 func (c *aesGcmSivGeneric) seal(ciphertext, nonce, plaintext, additionalData []byte) {
-	encKey, authKey := c.deriveKeys(nonce)
+	encKey, authKey := deriveKeys(nonce, c.block, c.keyLen)
 
 	var tag [16]byte
 	polyvalGeneric(&tag, additionalData, plaintext, authKey)
@@ -46,7 +46,7 @@ func (c *aesGcmSivGeneric) open(plaintext, nonce, ciphertext, additionalData []b
 	tag := ciphertext[len(ciphertext)-16:]
 	ciphertext = ciphertext[:len(ciphertext)-16]
 
-	encKey, authKey := c.deriveKeys(nonce)
+	encKey, authKey := deriveKeys(nonce, c.block, c.keyLen)
 	var ctrBlock [16]byte
 	copy(ctrBlock[:], tag)
 	ctrBlock[15] |= 0x80
@@ -70,7 +70,7 @@ func (c *aesGcmSivGeneric) open(plaintext, nonce, ciphertext, additionalData []b
 	return nil
 }
 
-func (c *aesGcmSivGeneric) deriveKeys(nonce []byte) (encKey, authKey []byte) {
+func deriveKeys(nonce []byte, block cipher.Block, keyLen int) (encKey, authKey []byte) {
 	var counter [16]byte
 	encKey = make([]byte, 32)
 	authKey = make([]byte, 16)
@@ -78,31 +78,31 @@ func (c *aesGcmSivGeneric) deriveKeys(nonce []byte) (encKey, authKey []byte) {
 
 	var tmp [16]byte
 	binary.LittleEndian.PutUint32(counter[:4], 0)
-	c.block.Encrypt(tmp[:], counter[:])
+	block.Encrypt(tmp[:], counter[:])
 	copy(authKey[0:], tmp[:8])
 
 	binary.LittleEndian.PutUint32(counter[:4], 1)
-	c.block.Encrypt(tmp[:], counter[:])
+	block.Encrypt(tmp[:], counter[:])
 	copy(authKey[8:], tmp[:8])
 
 	binary.LittleEndian.PutUint32(counter[:4], 2)
-	c.block.Encrypt(tmp[:], counter[:])
+	block.Encrypt(tmp[:], counter[:])
 	copy(encKey[0:], tmp[:8])
 
 	binary.LittleEndian.PutUint32(counter[:4], 3)
-	c.block.Encrypt(tmp[:], counter[:])
+	block.Encrypt(tmp[:], counter[:])
 	copy(encKey[8:], tmp[:8])
 
-	if c.keyLen == 16 {
+	if keyLen == 16 {
 		return encKey[:16], authKey
 	}
 
 	binary.LittleEndian.PutUint32(counter[:4], 4)
-	c.block.Encrypt(tmp[:], counter[:])
+	block.Encrypt(tmp[:], counter[:])
 	copy(encKey[16:], tmp[:8])
 
 	binary.LittleEndian.PutUint32(counter[:4], 5)
-	c.block.Encrypt(tmp[:], counter[:])
+	block.Encrypt(tmp[:], counter[:])
 	copy(encKey[24:], tmp[:8])
 
 	return encKey, authKey
