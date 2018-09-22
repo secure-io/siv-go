@@ -14,8 +14,6 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-func keySchedule(keys, key []byte)
-
 func aesCMacXORKeyStream(dst, src, iv, keys []byte, keyLen uint64)
 
 func newCMAC(key []byte) aead {

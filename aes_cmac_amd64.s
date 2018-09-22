@@ -4,7 +4,6 @@
 
 // +build amd64,!gccgo,!appengine
 
-#include "textflag.h"
 #include "aes_macros_amd64.s"
 
 #define LOAD_COUNTER(C, c0, c1, T) \
@@ -20,35 +19,6 @@
 	ADCQ   $0, c0; \
 	BSWAPQ c1;     \
 	BSWAPQ c0
-
-// func keySchedule(keys []uint32, key []byte)
-TEXT ·keySchedule(SB), 4, $0-48
-	MOVQ keys+0(FP), AX
-	MOVQ key+24(FP), BX
-	MOVQ keyLen+32(FP), DX
-
-	CMPQ DX, $24
-	JE   aes_192
-	JB   aes_128
-
-aes_256:
-	MOVUPS (0 * 16)(BX), X0
-	MOVUPS (1 * 16)(BX), X1
-	AES_KEY_SCHEDULE_256(AX, X0, X1, X2, X3)
-	JMP    return
-
-aes_192:
-	MOVUPS (0 * 16)(BX), X0
-	MOVQ   (1 * 16)(BX), X1
-	AES_KEY_SCHEDULE_192(AX, X0, X1, X2, X3, X4, X5, X6)
-	JMP    return
-
-aes_128:
-	MOVUPS (0 * 16)(BX), X0
-	AES_KEY_SCHEDULE_128(AX, X0, X1, X2)
-
-return:
-	RET
 
 // func aesCMacXORKeyStream(dst, src, iv, keys []byte, keyLen uint64)
 TEXT ·aesCMacXORKeyStream(SB), 4, $0-104
